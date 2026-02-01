@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.switchPluginPath = exports.reactClass = undefined;
+exports.switchPluginPath = exports.reactClass = exports.settingsClass = undefined;
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
@@ -38,7 +38,11 @@ var _candidates = require('./parts/candidates');
 
 var _candidates2 = _interopRequireDefault(_candidates);
 
+var _settingsClass = _interopRequireDefault(require('./settings-class'));
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+exports.settingsClass = _settingsClass.default;
 
 const { i18n, getStore } = window;
 const __ = i18n['poi-plugin-milk'].__.bind(i18n['poi-plugin-milk']);
@@ -143,9 +147,13 @@ const fleetsAkashiSelector = (0, _reselect.createSelector)([constShipsSelector, 
 
 // React
 
-);const reactClass = exports.reactClass = (0, _reactRedux.connect)((0, _selectors.createDeepCompareArraySelector)([fleetsAkashiSelector, _selectors.miscSelector], (data, { canNotify }) => _extends({}, data, {
+);const mapStateToProps = (state) => _extends({}, (0, _selectors.createDeepCompareArraySelector)([fleetsAkashiSelector, _selectors.miscSelector], (data, { canNotify }) => _extends({}, data, {
   canNotify
-})))(class PluginAnchorageRepair extends _react.Component {
+}))(state), {
+  openMainTimerOnStart: _lodash2.default.get(state, 'config.plugin.milk.openMainTimerOnStart', false),
+  openFifteenMinuteReminderOnStart: _lodash2.default.get(state, 'config.plugin.milk.openFifteenMinuteReminderOnStart', false)
+});
+const reactClass = exports.reactClass = (0, _reactRedux.connect)(mapStateToProps)(class PluginAnchorageRepair extends _react.Component {
 
   constructor(props) {
     super(props);
@@ -197,9 +205,22 @@ const fleetsAkashiSelector = (0, _reselect.createSelector)([constShipsSelector, 
     this.state = {
       activeTab: 1,
       sortIndex: 0,
-      showMain:1,
-      aler:0
+      showMain: 0,
+      aler: 0
     };
+  }
+
+  componentDidMount() {
+    const openMainTimer = !!this.props.openMainTimerOnStart;
+    const open15MinReminder = !!this.props.openFifteenMinuteReminderOnStart;
+    if (openMainTimer || open15MinReminder) {
+      this.setState(function (prev) {
+        return {
+          showMain: openMainTimer ? 1 : prev.showMain,
+          aler: open15MinReminder ? 1 : prev.aler
+        };
+      });
+    }
   }
 
   render() {
