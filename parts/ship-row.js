@@ -56,17 +56,19 @@ const ShipRow = (0, _reactRedux.connect)(state => {
 })((_temp = _class = class ShipRowClass extends _react.Component {
 
   render() {
-    const { timeElapsed, lastRefresh, canRepair, ship, canNotify } = this.props;
+    const { timeElapsed, timeElapsedMilk, lastRefresh, canRepair, ship, canNotify, canMilk, nosakiNoKai } = this.props;
     const { api_nowhp, api_maxhp, availableSRF, estimate, timePerHP,
-      api_id, api_lv, inRepair, api_name ,api_cond} = ship;
+      api_id, api_lv, inRepair, api_name, api_cond, canReceiveMilk } = ship;
     //console.log(ship)
     const completeTime = lastRefresh + estimate;
     var milkadd = 0;
-    if(canRepair==2||canRepair==4){
-      milkadd = Math.floor(timeElapsed/900)*2;
-    }
-    if(canRepair==3||canRepair==5){
-      milkadd = Math.floor(timeElapsed/900)*3;
+    var milkElapsed = timeElapsedMilk != null ? timeElapsedMilk : timeElapsed;
+    if (canMilk && canReceiveMilk) {
+      if (nosakiNoKai) {
+        milkadd = Math.floor(milkElapsed / 900) * 2;
+      } else {
+        milkadd = Math.floor(milkElapsed / 900) * 3;
+      }
     }
     var milks = Math.max(api_cond,Math.min(api_cond + milkadd,54))
 
@@ -126,14 +128,14 @@ const ShipRow = (0, _reactRedux.connect)(state => {
       _react2.default.createElement(
         'td',
         null,
-        (canRepair==1||canRepair==4||canRepair==5)?'❤️':null,
-        (canRepair==1||canRepair==4||canRepair==5) && api_nowhp !== api_maxhp && !inRepair && (0, _functions.repairEstimate)(ship, timeElapsed, availableSRF),
-        (canRepair==2||canRepair==3||canRepair==4||canRepair==5)?
-          _react2.default.createElement(
-            'td',
-            null,
-            '🙂'+milks,
-          ):null
+        canRepair ? '❤️' : null,
+        canRepair && api_nowhp !== api_maxhp && !inRepair && (0, _functions.repairEstimate)(ship, timeElapsed, availableSRF),
+        canMilk && canReceiveMilk ? _react2.default.createElement(
+          'span',
+          null,
+          '🙂',
+          milks
+        ) : null
       )
     );
   }
@@ -147,9 +149,12 @@ const ShipRow = (0, _reactRedux.connect)(state => {
 }, _class.propTypes = {
   canNotify: _propTypes2.default.bool.isRequired,
   timeElapsed: _propTypes2.default.number.isRequired,
+  timeElapsedMilk: _propTypes2.default.number,
   lastRefresh: _propTypes2.default.number.isRequired,
   ship: _propTypes2.default.object.isRequired,
-  canRepair: _propTypes2.default.bool.isRequired
+  canRepair: _propTypes2.default.bool.isRequired,
+  canMilk: _propTypes2.default.bool,
+  nosakiNoKai: _propTypes2.default.bool
 }, _temp));
 
 exports.default = ShipRow;

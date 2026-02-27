@@ -8,7 +8,7 @@ var _lodash2 = _interopRequireDefault(_lodash);
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.getCountdownLabelStyle = exports.getHPLabelStyle = exports.repairEstimate = exports.getTimePerHP = exports.timePerHPCalc = exports.akashiEstimate = exports.AKASHI_INTERVAL = exports.getCanRepairStatus = undefined;
+exports.getCountdownLabelStyle = exports.getHPLabelStyle = exports.repairEstimate = exports.getTimePerHP = exports.timePerHPCalc = exports.akashiEstimate = exports.AKASHI_INTERVAL = exports.getCanMilk = exports.getCanRepair = undefined;
 
 var _factor = require('./factor');
 
@@ -95,25 +95,16 @@ const getCountdownLabelStyle = exports.getCountdownLabelStyle = (props, timeRema
 };
 
 
-const getCanRepairStatus = exports.getCanRepairStatus = function(fleet){
-  var flagshipa = _lodash2.default.get(fleet, 'api_ship.0', -1)
-  var secondshipa = _lodash2.default.get(fleet, 'api_ship.1', -1)
-  var flagshipid = _ships[flagshipa]?_ships[flagshipa].api_ship_id:-1;
-  var secondshipid = _ships[secondshipa]?_ships[secondshipa].api_ship_id:-1;
-  var newCanRepair = 0;
-  if(flagshipid==182||flagshipid==187){
-    newCanRepair = 1
-  }else if (flagshipid==996||secondshipid==996){
-    newCanRepair = 2
-  }else if (flagshipid==1002||secondshipid==1002){
-    newCanRepair = 3
-  }else if (flagshipid==182||flagshipid==187&&secondshipid==996){
-    newCanRepair = 4
-  }else if (flagshipid==182||flagshipid==187&&secondshipid==1002){
-    newCanRepair = 5
-  }else{
-    newCanRepair = 0
-  }
-  return newCanRepair
+const getCanRepair = exports.getCanRepair = function(fleet){
+  var flagshipa = _lodash2.default.get(fleet, 'api_ship.0', -1);
+  var flagshipid = _ships[flagshipa] ? _ships[flagshipa].api_ship_id : -1;
+  return flagshipid === 182 || flagshipid === 187;
+};
 
-}
+const getCanMilk = exports.getCanMilk = function(fleet){
+  var flagshipa = _lodash2.default.get(fleet, 'api_ship.0', -1);
+  var secondshipa = _lodash2.default.get(fleet, 'api_ship.1', -1);
+  var flagshipid = _ships[flagshipa] ? _ships[flagshipa].api_ship_id : -1;
+  var secondshipid = _ships[secondshipa] ? _ships[secondshipa].api_ship_id : -1;
+  return flagshipid==996||secondshipid==996||flagshipid==1002||secondshipid==1002;
+};

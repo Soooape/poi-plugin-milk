@@ -48,19 +48,51 @@ const { i18n, getStore } = window;
 const __ = i18n['poi-plugin-milk'].__.bind(i18n['poi-plugin-milk']);
 
 const AKASHI_ID = [182, 187]; // akashi and kai ID in $ships
+const NOSAKI_ID = [996, 1002]; // nosaki and kai ID in $ships
 const SRF_ID = 86; // Ship Repair Facility ID in $slotitems
 
 
 // check a fleet status, returns information related to anchorage repair
 const fleetAkashiConv = (fleet, $ships, ships, equips, repairId) => {
   const pickKey = ['api_id', 'api_ship_id', 'api_lv', 'api_nowhp', 'api_maxhp', 'api_ndock_time','api_cond'];
-
   let canRepair = false;
   let akashiFlagship = false;
   let repairCount = 0;
+  let canMilk = false;
+  let nosakiId = 0;
+  let nosakiInPosition = false;
+  let nosakiInRepair = false;
+  let nosakiFullSupply = false;
+  let nosakiDamaged = false;
+  let nosakiCondition = 0;
   const inExpedition = _lodash2.default.get(fleet, 'api_mission.0') && true;
   const flagShipInRepair = _lodash2.default.includes(repairId, _lodash2.default.get(fleet, 'api_ship.0', -1));
   const flagship = ships[_lodash2.default.get(fleet, 'api_ship.0', -1)];
+
+  let nosakiShip = null;
+  let nosakiIndex = -1;
+  for (let i = 0; i <= 5; i++) {
+    const shipId = _lodash2.default.get(fleet, ['api_ship', i], -1);
+    if (shipId <= 0) continue;
+    const ship = ships[shipId];
+    if (ship != null && _lodash2.default.includes(NOSAKI_ID, ship.api_ship_id)) {
+      nosakiShip = ship;
+      nosakiIndex = i;
+      break;
+    }
+  }
+  nosakiInPosition = nosakiShip != null && _lodash2.default.includes([0, 1], nosakiIndex);
+  nosakiId = nosakiShip ? nosakiShip.api_ship_id : 0;
+  nosakiInRepair = nosakiShip != null && _lodash2.default.includes(repairId, nosakiShip.api_id);
+  const $nosaki = nosakiShip != null ? _lodash2.default.get($ships, nosakiShip.api_ship_id) : null;
+  const curFuel = nosakiShip ? nosakiShip.api_fuel : undefined;
+  const maxFuel = $nosaki ? $nosaki.api_fuel_max : undefined;
+  const curAmmo = nosakiShip ? nosakiShip.api_bull : undefined;
+  const maxAmmo = $nosaki ? $nosaki.api_bull_max : undefined;
+  nosakiFullSupply = nosakiShip != null && curFuel === maxFuel && curAmmo === maxAmmo;
+  nosakiDamaged = nosakiShip != null && nosakiShip.api_nowhp <= (nosakiShip.api_maxhp / 4 * 3);
+  nosakiCondition = nosakiShip ? nosakiShip.api_cond : 0;
+  const nosakiNoKai = nosakiId === 996;
 
   if (flagship != null) {
     akashiFlagship = _lodash2.default.includes(AKASHI_ID, flagship.api_ship_id);
@@ -69,6 +101,7 @@ const fleetAkashiConv = (fleet, $ships, ships, equips, repairId) => {
   }
 
   canRepair = akashiFlagship && !inExpedition && !flagShipInRepair;
+  canMilk = nosakiInPosition && !inExpedition && !nosakiInRepair && nosakiFullSupply && !nosakiDamaged && nosakiCondition >= 30;
 
   const repairDetail = _lodash2.default.map(_lodash2.default.filter(fleet.api_ship, shipId => shipId > 0), (shipId, index) => {
     if (shipId === -1) return false; // break, LODASH ONLY
@@ -86,37 +119,28 @@ const fleetAkashiConv = (fleet, $ships, ships, equips, repairId) => {
     });
   });
 
+  const milkDetail = _lodash2.default.map(_lodash2.default.filter(fleet.api_ship, shipId => shipId > 0), (shipId, index) => {
+    if (shipId === -1) return false;
+    const ship = _lodash2.default.pick(ships[shipId], pickKey);
+    const constShip = _lodash2.default.pick($ships[ship.api_ship_id], ['api_name', 'api_stype']);
+    const inRepair = _lodash2.default.includes(repairId, ship.api_id);
+    const isCompanion = index !== nosakiIndex;
+    const canReceiveMilk = canMilk && isCompanion && !inRepair && (!nosakiNoKai || (ship.api_cond || 0) >= 49);
+    return _extends({}, ship, constShip, {
+      cond: ship.api_cond,
+      inRepair,
+      isCompanion,
+      canReceiveMilk
+    });
+  });
+
+  _lodash2.default.forEach(repairDetail, (r, i) => {
+    if (r && milkDetail[i]) r.canReceiveMilk = milkDetail[i].canReceiveMilk;
+    else if (r) r.canReceiveMilk = false;
+  });
+
   //console.log(repairDetail)
 
-  var repairStatus = 0
-  var flagshipa = _lodash2.default.get(fleet, 'api_ship.0', -1)
-  var secondshipa = _lodash2.default.get(fleet, 'api_ship.1', -1)
-  var flagshipid = ships[flagshipa]?ships[flagshipa].api_ship_id:-1;
-  var secondshipid = ships[secondshipa]?ships[secondshipa].api_ship_id:-1;
-  if(canRepair){
-    repairStatus = 1;
-    if(secondshipid==996
-      //||secondshipid==357  //没有野崎，用初月改测试
-    ){
-      repairStatus = 4;
-    }
-    if(secondshipid==1002
-    ){
-      repairStatus = 5;
-    }
-  }else{
-    if(flagshipid==996||secondshipid==996
-        //||flagshipid==357||secondshipid==357  //没有野崎，用初月改测试
-    ){
-      repairStatus = 2;
-    }
-    if(flagshipid==1002||secondshipid==1002
-    ){
-      repairStatus = 3;
-    }
-  }
-  //console.log("cc:"+flagshipid)
-  canRepair = repairStatus;
   var lastCanRepair = canRepair;
   //console.log("cc2:"+canRepair)
   var lastUpdate = Date.now();
@@ -125,12 +149,21 @@ const fleetAkashiConv = (fleet, $ships, ships, equips, repairId) => {
     api_id: fleet.api_id || -1,
     shipId: fleet.api_ship || [],
     canRepair,
+    canMilk,
     akashiFlagship,
     inExpedition,
     flagShipInRepair,
     repairCount,
     repairDetail,
+    milkDetail,
     lastUpdate,
+    nosakiNoKai,
+    nosakiCondition,
+    nosakiFullSupply,
+    nosakiDamaged,
+    nosakiInPosition,
+    nosakiInRepair,
+    nosakiShip,
   };
 };
 
@@ -333,12 +366,9 @@ const switchPluginPath = exports.switchPluginPath = [{
 
     const result = fleets.map(fleet => fleetAkashiConv(fleet, $ships, ships, equips, repairId));
     //console.log(result)
-    var ret =  result.some(fleet =>
-      ((fleet.canRepair ==1 )&& fleet.repairDetail.some(ship => ship.estimate > 0)) ||
-      ((fleet.canRepair ==2 || fleet.canRepair ==3 )&& fleet.repairDetail.some(ship => ship.cond < 54)) ||
-      ((fleet.canRepair ==4 || fleet.canRepair ==5 )&&
-        (fleet.repairDetail.some(ship => ship.cond < 54) || fleet.repairDetail.some(ship => ship.estimate > 0))
-      )
+    var ret = result.some(fleet =>
+      (fleet.canRepair && fleet.repairDetail.some(ship => ship.estimate > 0)) ||
+      (fleet.canMilk && fleet.repairDetail.some(ship => ship.cond < 54))
     );
     //console.log('1111111111:'+ret);
     return ret;

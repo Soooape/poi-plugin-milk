@@ -50,41 +50,43 @@ class FleetList extends _react.Component {
 
     this.handleResponse = e => {
       const { path, postBody } = e.detail;
-      const { timeElapsed, lastRefresh } = this.state;
+      const { timeElapsed, timeElapsedMilk, lastRefresh, lastRefreshMilk } = this.state;
+      const needtimeRepair = _functions.AKASHI_INTERVAL / 1000;
+      const needtimeMilk = 900;
       switch (path) {
-        case '/kcsapi/api_port/port':
-
+        case '/kcsapi/api_port/port': {
           const { fleet } = this.props;
-          var needtime = 900;
-          if(fleet.canRepair==0){
-            needtime = 900;
-          }else if(fleet.canRepair==1){
-            needtime = _functions.AKASHI_INTERVAL / 1000;
-          }else if(fleet.canRepair==2||fleet.canRepair==3){
-            needtime = 900;
-          }else if(fleet.canRepair==4||fleet.canRepair==5){
-            needtime = 900;
+          const now = Date.now();
+          const actualElapsedRepair = lastRefresh > 0 ? Math.round((now - lastRefresh) / 1000) : 0;
+          const actualElapsedMilk = lastRefreshMilk > 0 ? Math.round((now - lastRefreshMilk) / 1000) : 0;
+          const updates = {};
+          if (lastRefresh === 0) {
+            updates.lastRefresh = now;
+          } else if (fleet.canRepair && actualElapsedRepair >= needtimeRepair) {
+            updates.lastRefresh = now;
           }
-
-          if (timeElapsed >= needtime || lastRefresh === 0) {
-            this.setState({
-              lastRefresh: Date.now(),
-              timeElapsed: 0
-            });
+          if (lastRefreshMilk === 0) {
+            updates.lastRefreshMilk = now;
+          } else if (fleet.canMilk && actualElapsedMilk >= needtimeMilk) {
+            updates.lastRefreshMilk = now;
+          }
+          if (Object.keys(updates).length > 0) {
+            this.setState(updates);
           }
           break;
+        }
 
         case '/kcsapi/api_req_hensei/preset_select':
           {
             const { fleet} = this.props;
 
-            var oldCanRepair = _functions.getCanRepairStatus(fleet);
+            var oldCanRepair = _functions.getCanRepair(fleet);
 
             var changeFleetId = parseInt(postBody.api_deck_id, 10);
             if(!Number.isNaN(changeFleetId)&&changeFleetId==this.props.fleet.api_id){
               //console.log(fleet);
               var newFleet = getStore('info.fleets')[changeFleetId-1];
-              var newCanRepair = _functions.getCanRepairStatus(newFleet);
+              var newCanRepair = _functions.getCanRepair(newFleet);
               // console.log(3333333333)
               // console.log(oldCanRepair,newCanRepair);
               var key = 'cr_'+changeFleetId
@@ -96,65 +98,33 @@ class FleetList extends _react.Component {
         case '/kcsapi/api_req_hensei/change':
           {
 
-
-            const { fleet} = this.props;
-            var needtime = 900;
-            if(fleet.canRepair==0){
-              needtime = 900;
-            }else if(fleet.canRepair==1){
-              needtime = _functions.AKASHI_INTERVAL / 1000;
-            }else if(fleet.canRepair==2||fleet.canRepair==3){
-              needtime = 900;
-            }else if(fleet.canRepair==4||fleet.canRepair==5){
-              needtime = 900;
-            }
-
+            const { fleet } = this.props;
+            const needtimeRepair = _functions.AKASHI_INTERVAL / 1000;
+            const needtimeMilk = 900;
+            const { timeElapsed, timeElapsedMilk } = this.state;
 
             const fleetId = parseInt(postBody.api_id, 10);
-            const shipId = parseInt(postBody.api_ship_id, 10
-            // const shipIndex = parseInt(postBody.api_ship_idx)
-            );if (!Number.isNaN(fleetId) && fleetId === this.props.fleet.api_id && shipId >= 0) {
-              if (timeElapsed < needtime) {
-                var newFleet = getStore('info.fleets')[fleetId-1];
-                var newCanRepair = 0;
-                if(newFleet){
-                  var flagshipa = _lodash2.default.get(newFleet, 'api_ship.0', -1)
-                  var secondshipa = _lodash2.default.get(newFleet, 'api_ship.1', -1)
-                  var flagshipid = _ships[flagshipa]?_ships[flagshipa].api_ship_id:-1;
-                  var secondshipid = _ships[secondshipa]?_ships[secondshipa].api_ship_id:-1;
-                  if(flagshipid==182||flagshipid==187){
-                    newCanRepair = 1
-                  }else if (flagshipid==996||secondshipid==996){
-                    newCanRepair = 2
-                  }else if (flagshipid==1002||secondshipid==1002){
-                    newCanRepair = 3
-                  }else if (flagshipid==182||flagshipid==187&&secondshipid==996){
-                    newCanRepair = 4
-                  }else if (flagshipid==182||flagshipid==187&&secondshipid==1002){
-                    newCanRepair = 5
-                  }else{
-                    newCanRepair = 0
-                  }
-                }
-                if(fleet.canRepair==0&&newCanRepair==0){
-                  this.setState({
-                    lc:newCanRepair
-                  });
-                }else{
-                  this.setState({
-                    lastRefresh: Date.now(),
-                    timeElapsed: 0,
-                    lc:newCanRepair
-                  });
+            const shipId = parseInt(postBody.api_ship_id, 10);
+            if (!Number.isNaN(fleetId) && fleetId === this.props.fleet.api_id && shipId >= 0) {
+              var newFleet = getStore('info.fleets')[fleetId - 1];
+              var newCanRepair = newFleet ? _functions.getCanRepair(newFleet) : false;
+              var newCanMilk = newFleet ? _functions.getCanMilk(newFleet) : false;
+
+              if (timeElapsed < needtimeRepair && timeElapsedMilk < needtimeMilk) {
+                const updates = {};
+                if (newCanRepair) updates.lastRefresh = Date.now();
+                if (newCanMilk) updates.lastRefreshMilk = Date.now();
+                if (!fleet.canRepair && !newCanRepair && !newCanMilk) {
+                  this.setState({ lc: newCanRepair });
+                } else if (Object.keys(updates).length > 0) {
+                  this.setState(updates);
                 }
               } else if (shipId < 0) {
-                this.setState({
-                  lc:newCanRepair
-                });
+                this.setState({});
               } else {
-                this.setState({ // since it has passed more than 20 minutes, need to refresh the hp
+                this.setState({
                   lastRefresh: 0,
-                  lc:newCanRepair
+                  lastRefreshMilk: 0
                 });
               }
             }
@@ -165,7 +135,7 @@ class FleetList extends _react.Component {
             const shipId = parseInt(postBody.api_ship_id, 10);
             const infleet = _lodash2.default.filter(this.props.fleet.shipId, id => shipId === id);
             if (postBody.api_highspeed === 1 && infleet != null) {
-              this.setState({ lastRefresh: Date.now() });
+              this.setState({ lastRefresh: Date.now(), lastRefreshMilk: Date.now() });
             }
             break;
           }
@@ -175,40 +145,47 @@ class FleetList extends _react.Component {
 
     this.tick = timeElapsed => {
       if (timeElapsed % 5 === 0) {
-        // limit component refresh rate
         this.setState({ timeElapsed });
+      }
+    };
+    this.tickMilk = timeElapsedMilk => {
+      if (timeElapsedMilk % 5 === 0) {
+        this.setState({ timeElapsedMilk });
       }
     };
 
     this.resetTimeElapsed = () => {
       this.setState({ timeElapsed: 0 });
     };
+    this.resetTimeElapsedMilk = () => {
+      this.setState({ timeElapsedMilk: 0 });
+    };
 
     this.state = {
       lastRefresh: 0,
-      timeElapsed: 0
+      timeElapsed: 0,
+      lastRefreshMilk: 0,
+      timeElapsedMilk: 0
     };
   }
 
   render() {
-    const { timeElapsed, lastRefresh } = this.state;
+    const { timeElapsed, timeElapsedMilk, lastRefresh, lastRefreshMilk } = this.state;
     const { fleet } = this.props;
 
-    var s1 = ''
-    //console.log('can repair:'+fleet.canRepair);
-    if(fleet.canRepair==0){
-      s1 =  __('Not ready');
-    }else if(fleet.canRepair==1){
-      s1 = __('Repairing')
-    }else if(fleet.canRepair==2||fleet.canRepair==3){
-      s1 = '正在喂奶';
-    }else if(fleet.canRepair==4||fleet.canRepair==5){
-      s1 = '正在修理和喂奶';
+    var s1 = '';
+    if (!fleet.canRepair) {
+      s1 = __('Repair not ready');
+    } else {
+      s1 = __('Repairing');
+    }
+    var s2 = '';
+    if (!fleet.canMilk) {
+      s2 = __('Milk not ready');
+    } else {
+      s2 = __('Feeding');
     }
     var lc = this.state.lc;
-    //console.log(1111111)
-    //console.log(lc)
-    //console.log(fleet.canRepair)
 
 
     return _react2.default.createElement(
@@ -260,9 +237,9 @@ class FleetList extends _react.Component {
         _react2.default.createElement(
           _reactBootstrap.Col,
           { xs: 4, className: 'info-col' },
-          _react2.default.createElement(
-            _reactBootstrap.Label,
-            { bsStyle: fleet.canRepair ? 'success' : 'warning' },
+            _react2.default.createElement(
+              _reactBootstrap.Label,
+              { bsStyle: fleet.canRepair ? 'success' : 'warning' },
             _react2.default.createElement(
               'span',
               null,
@@ -270,10 +247,10 @@ class FleetList extends _react.Component {
               ' '
             ),
             _react2.default.createElement(_countupTimer2.default, {
-              countdownId: `milk-${fleet.api_id}`,
+              countdownId: 'repair-' + fleet.api_id,
               startTime: this.state.lastRefresh,
-              showMain:this.props.showm,
-              aler:this.props.aler,
+              showMain: this.props.showm,
+              aler: this.props.aler,
               tickCallback: this.tick,
               startCallback: this.resetTimeElapsed
             })
@@ -292,13 +269,76 @@ class FleetList extends _react.Component {
       ),
       _react2.default.createElement(
         _reactBootstrap.Row,
+        { className: 'info-row' },
+        _react2.default.createElement(
+          _reactBootstrap.Col,
+          { xs: 4, className: 'info-col' },
+          _react2.default.createElement(
+            _reactBootstrap.OverlayTrigger,
+            {
+              placement: 'bottom',
+              trigger: fleet.canMilk ? 'click' : ['hover', 'focus'],
+              overlay: _react2.default.createElement(
+                _reactBootstrap.Tooltip,
+                { id: `anchorage-milk-notify-${fleet.api_id}` },
+                fleet.canMilk ? _react2.default.createElement('p', null, __('Nosaki loves you!')) : null,
+                fleet.nosakiShip == null
+                  ? _react2.default.createElement('p', null, __('Nosaki not found'))
+                  : _react2.default.createElement(
+                    'span',
+                    null,
+                    !fleet.nosakiInPosition ? _react2.default.createElement('p', null, __('Nosaki not in position')) : null,
+                    !fleet.nosakiFullSupply ? _react2.default.createElement('p', null, __('Nosaki needs resupply')) : null,
+                    fleet.nosakiDamaged ? _react2.default.createElement('p', null, __('Nosaki damaged')) : null,
+                    (fleet.nosakiCondition == null || fleet.nosakiCondition < 30) ? _react2.default.createElement('p', null, __('Nosaki low morale')) : null,
+                    fleet.nosakiInRepair ? _react2.default.createElement('p', null, __('Nosaki in dock')) : null
+                  )
+              )
+            },
+            _react2.default.createElement(
+              _reactBootstrap.Label,
+              { bsStyle: fleet.canMilk ? 'success' : 'warning' },
+              s2
+            )
+          )
+        ),
+        _react2.default.createElement(
+          _reactBootstrap.Col,
+          { xs: 4, className: 'info-col' },
+          _react2.default.createElement(
+            _reactBootstrap.Label,
+            { bsStyle: fleet.canMilk ? 'success' : 'warning' },
+            _react2.default.createElement(
+              'span',
+              null,
+              __('Elapsed:'),
+              ' '
+            ),
+            _react2.default.createElement(_countupTimer2.default, {
+              countdownId: 'milk-' + fleet.api_id,
+              startTime: this.state.lastRefreshMilk,
+              showMain: this.props.showm,
+              aler: this.props.aler,
+              tickCallback: this.tickMilk,
+              startCallback: this.resetTimeElapsedMilk
+            })
+          )
+        ),
+        _react2.default.createElement(
+          _reactBootstrap.Col,
+          { xs: 4, className: 'info-col' },
+          null
+        )
+      ),
+      _react2.default.createElement(
+        _reactBootstrap.Row,
         null,
         _react2.default.createElement(
           _reactBootstrap.Col,
           { xs: 12 },
           _react2.default.createElement(
             _reactBootstrap.Panel,
-            { bsStyle: 'warning', className: lastRefresh === 0 ? '' : 'hidden' },
+            { bsStyle: 'warning', className: lastRefresh === 0 || lastRefreshMilk === 0 ? '' : 'hidden' },
             __('Please return to HQ screen to make timer refreshed.')
           )
         )
@@ -398,7 +438,10 @@ class FleetList extends _react.Component {
                 ship: ship,
                 lastRefresh: lastRefresh,
                 timeElapsed: timeElapsed,
-                canRepair: fleet.canRepair
+                timeElapsedMilk: timeElapsedMilk,
+                canRepair: fleet.canRepair,
+                canMilk: fleet.canMilk,
+                nosakiNoKai: fleet.nosakiNoKai
               }))
             )
           )
